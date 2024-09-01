@@ -1,0 +1,2 @@
+First-order Sobol indices: [0.43369881 0.03645746 0.43917283 0.0421738 ]
+Total-order Sobol indices: [0.4637236  0.06606354 0.46058985 0.06573847]
