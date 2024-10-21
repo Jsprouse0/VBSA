@@ -1,5 +1,5 @@
 import pandas as pd
-from VBSA.VBSA.plotting import bar as barplot
+from VBSA.VBSA.plotting.bar import plot as barplot
 
 class ResultDict(dict):
     """Dictionary holding analysis results.

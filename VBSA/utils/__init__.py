@@ -16,20 +16,6 @@ def extract_group_names(problem: Dict) -> Tuple[List[str], int]:
 
     return unique_groups, number_of_groups
 
-def ResultDict(problem: Dict, results: pd.DataFrame) -> Dict:
-    """Create a dictionary with the results for each group
-
-    :param  problem : dict
-        The problem definition containing 'names' and optionally 'groups'.
-    :param  results : pd.DataFrame
-        The results of the optimization problem.
-    :return: dict
-        A dictionary with the results for each group.
-    """
-    groups, _ = extract_group_names(problem)
-    result_dict = {group: results[results["group"] == group] for group in groups}
-
-    return result_dict
 
 def read_param_file(file_path: str) -> Dict:
     """Read the parameter file and return the problem definition

@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 
 from types import MethodType
+from typing import Optional
 from warnings import warn
 
 from numpy import ndarray
@@ -10,7 +11,8 @@ from functools import partial
 from itertools import combinations, zip_longest
 from multiprocessing import Pool, cpu_count
 
-from VBSA.VBSA.utils import extract_group_names, ResultDict
+from VBSA.VBSA.utils import extract_group_names
+from VBSA.VBSA.plotting.results import ResultDict
 CONST_RESULT_MSG = (
     "The input values are constant, "
     "therefore the Sobol indices cannot be calculated."
@@ -23,13 +25,26 @@ class SobolAnalyzer:
                  problem: dict,
                  Y: ndarray,
                  calc_second_order=True,
-                 num_resamples=100,
+                 num_resamples=1000,
                  conf_level=0.95,
-                 parallel=False,
-                 n_processors=None,
-                 keep_resamples=False,
-                 print_to_console=False,
-                 seed=None):
+                 parallel: Optional[bool] = None,
+                 n_processors: Optional[int] = None,
+                 keep_resamples: Optional[bool] = False,
+                 print_to_console: Optional[bool] = False,
+                 seed: Optional[int] = None):
+        """
+        Sobol Analyzer class to calculate the Sobol indices for a given model output values.
+        :param problem: dict: problem dictionary for the model to be analyzed
+        :param Y: ndarray: model output values to be analyzed for Sobol indices
+        :param calc_second_order: bool: calculate second order indices or not
+        :param num_resamples: int: number of resamples to perform on the model output values
+        :param conf_level: float: confidence level of the Sobol indices
+        :param parallel: bool: parallel flag to determine if the analysis is performed in parallel or not
+        :param n_processors: int: number of processors to use for parallel analysis
+        :param keep_resamples: bool: keep resamples or not
+        :param print_to_console: bool: print the results to the console
+        :param seed: int: seed value for the random number generator
+        """
         self.problem = problem
         self.Y = Y
         self.calc_second_order = calc_second_order
@@ -129,14 +144,14 @@ class SobolAnalyzer:
         Y_reshaped = Y.reshape(N, step)
 
         # Extract A and B
-        self.A = Y_reshaped[:, :0]
+        self.A = Y_reshaped[:, 0]
         self.B = Y_reshaped[:, -1]
 
         # Extract AB
         self.AB = Y_reshaped[:, 1: D + 1]
 
         # Extract BA if second order indices are calculated
-        self.BA = Y_reshaped[:,  + 1:2 * D + 1] if self.calc_second_order else None
+        self.BA = Y_reshaped[:, D + 1:2 * D + 1] if self.calc_second_order else None
 
         return self.A, self.B, self.AB, self.BA
 
@@ -217,9 +232,9 @@ class SobolAnalyzer:
     def calculate_second_order(self, D, A, AB, BA, B, r, Z, S) -> None:
         for j in range(D):
             for k in range(j + 1, D):
-                S["S2"][j, k] = self.second_order(A, AB[:, j], AB[:, k], BA[:, j], B)
-                S["S2_conf"][j, k] = Z * self.second_order(A[r], AB[r, j], AB[r, k],
-                                                           BA[r, j], B[r]).std(ddof=1)
+                S["S2"][j, k] = self.second_order(A, B, AB[:, j], AB[:, k], BA[:, j])
+                S["S2_conf"][j, k] = Z * self.second_order(A[r], B[r], AB[r, j], AB[r, k],
+                                                           BA[r, j]).std(ddof=1)
 
     @staticmethod
     def print_results(S) -> None:
@@ -332,7 +347,7 @@ class SobolAnalyzer:
             )
         return tasks, n_processors
 
-    def Si_list_to_dict(self, S_list, D, num_resamples, keep_resamples, calc_second_order):
+    def Si_list_to_dict(self, S_list: list, D: int, num_resamples: int, keep_resamples: bool, calc_second_order: bool) -> ResultDict:
         S = self.create_Si_dict(D, num_resamples, keep_resamples, calc_second_order)
         L = []
         for list in S_list:
