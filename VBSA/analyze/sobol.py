@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from types import MethodType
-from typing import Optional
+from typing import Optional, Tuple
 from warnings import warn
 
 from numpy import ndarray
@@ -71,7 +71,7 @@ class SobolAnalyzer:
         """
         return np.random.default_rng(seed).integers if seed else np.random.randint
 
-    def validate_inputs(self, problem: dict, Y: ndarray, calc_second_order: bool, conf_level: int) -> tuple[int, int]:
+    def validate_inputs(self, problem: dict, Y: ndarray, calc_second_order: bool, conf_level: float) -> Tuple[int, int]:
         """
         Validate the inputs to the SobolAnalyzer class.
         :param problem: dict: problem dictionary
@@ -99,11 +99,12 @@ class SobolAnalyzer:
             return int(Y.size / (D + 2))
         else:
             raise ValueError("Incorrect number of samples in model output file. "
-                             "Please ensure the number of samples is a multiple of D + 2 or 2D + 2.")
+                             "Please ensure the model values Y is a multiple of D + 2 or 2D + 2.")
 
-    def normalize_outputs(self, Y) -> tuple[ndarray, ndarray]:
+    def normalize_outputs(self, Y) -> ndarray:
         """
         Rescale the output values to have a mean of 0 and standard deviation of 1.
+        ensures that the values in Y are not too far past the standard deviation.
         :param Y: ndarray: model output values
         :return: tuple[ndarray, ndarray]: normalized output values
         """
@@ -138,8 +139,20 @@ class SobolAnalyzer:
 
         return S
 
-    def separate_output_values(self, Y: ndarray, D: int, N: int, calc_second_order: bool) -> tuple[ndarray, ndarray, ndarray, ndarray | None]:
+    def separate_output_values(self, Y: ndarray, D: int, N: int, calc_second_order: bool) -> Tuple[ndarray, ndarray, ndarray, Optional[ndarray]]:
+        """
+        The function reshapes Y into a 2D array with N rows and step columns, where step is either D + 2 or 2D + 2.
+        depending on whether second order indices are calculated. The first and last columns of the reshaped Y are assigned to A and B, respectively.
+        The columns in between are assigned to AB and BA if second order indices are calculated.
+
+        :param Y: ndarray: model output values
+        :param D: int: number of parameters
+        :param N: int: number of samples
+        :param calc_second_order: bool: calculate second order indices
+        :return: tuple[ndarray, ndarray, ndarray, ndarray | None]: A, B, AB, BA; None if second order indices are not calculated
+        """
         # Reshape Y to separate the values
+        print(type(Y))
         step = 2 * D + 2 if calc_second_order else D + 2
         Y_reshaped = Y.reshape(N, step)
 
@@ -185,7 +198,7 @@ class SobolAnalyzer:
             S_list = pool.map(func, tasks)
         return self.Si_list_to_dict(S_list, self.D, kwargs.get('num_resamples'), kwargs.get('keep_resamples'), self.calc_second_order)
 
-    def calculate_first_order(self, A: ndarray, AB_j: ndarray, B:ndarray, r: initialize_rng, Z: int, keep_resamples: bool, S: ResultDict, j: int) -> tuple[ndarray, float]:
+    def calculate_first_order(self, A: ndarray, AB_j: ndarray, B:ndarray, r: initialize_rng, Z: int, keep_resamples: bool, S: ResultDict, j: int) -> Tuple[ndarray, float]:
         """
         Calculate the first order indices for each parameter. If keep_resamples is True, store the resamples in the S dictionary.
         :param A: ndarray: a matrix of model output values
@@ -206,7 +219,7 @@ class SobolAnalyzer:
         S1_conf = Z * S1_conf_j.std(ddof=1) if var_diff != 0.0 else 0.0
         return S1, S1_conf
 
-    def calculate_total_order(self, A: ndarray, AB_j: ndarray, B: ndarray, r: initialize_rng, Z: int, keep_resamples: bool, S: ndarray, j: int) -> tuple[ndarray, float | ndarray]:
+    def calculate_total_order(self, A: ndarray, AB_j: ndarray, B: ndarray, r: initialize_rng, Z: int, keep_resamples: bool, S: ResultDict, j: int) -> Tuple[ndarray, float | ndarray]:
         """
         Calculates the total order indices for each parameter. If keep_resamples is True, store the resamples in the S dictionary.
         total order is calculated as the variance of the model output values for each parameter. This is used to determine the
@@ -350,8 +363,8 @@ class SobolAnalyzer:
     def Si_list_to_dict(self, S_list: list, D: int, num_resamples: int, keep_resamples: bool, calc_second_order: bool) -> ResultDict:
         S = self.create_Si_dict(D, num_resamples, keep_resamples, calc_second_order)
         L = []
-        for list in S_list:
-            L += list
+        for item in S_list:
+            L += item
         for s in L:
             if s[2] is None:
                 S[s[0]][s[1]] = s[3]
