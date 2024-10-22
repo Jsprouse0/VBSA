@@ -34,6 +34,39 @@ class VBSAOptimization:
         analyzer = SobolAnalyzer(problem=self.problem, Y=self.Y, **self.kwargs)
         return analyzer.analyze()
 
+    @staticmethod
+    def objective_function(params: np.ndarray, X: np.ndarray, y: np.ndarray, objective: str="SS") -> float:
+        """
+        Objective function that quantifies the performance of the model based on the input parameters.
+        This function should be defined based on the specific optimization goal (e.g., minimizing error, maximizing performance). \n
+        - "MSE": Mean Squared Error (Commonly used in machine learning to measure the average squared difference between predicted and actual values).
+        - "NLL": Negative Log-Likelihood (Used in probabilistic models to measure the likelihood of the model given the observed data).
+        - "CPM": Custom Performance Metric (Custom metric defined based on the specific problem and model).
+        - "SS": Sum of Squares (Often used in regression problems to minimize error).
+
+        :param params: np.ndarray: Input parameters for the model.
+        :param X: np.ndarray: Input Features
+        :param y: np.ndarray: Actual target Values.
+        :param objective: str: Optimization objective.
+        :return float: Value of the specified performance metric
+        """
+        # Example model prediction (linear model)
+        predictions = X @ params
+
+        # Calculate performance metrics
+        performance_metrics = {
+            'MSE': np.mean((predictions - y) ** 2),
+            'NLL': -np.sum(y * np.log(predictions) - predictions),
+            'CPM': np.mean(np.abs(predictions - y)),
+            'SS': np.sum(np.square(params))
+        }
+
+        if objective in performance_metrics:
+            return performance_metrics[objective]
+        else:
+            raise ValueError(f"Objective function '{objective}' not supported. Choose from: {list(performance_metrics.keys())}")
+
+
     def optimize_model(self, data: ResultDict):
         """
         Optimize the model based on the sensitivity analysis results.\n
@@ -93,8 +126,8 @@ if __name__ == "__main__":
 # Visualization: Use visualizations such as bar charts, scatter plots, and sensitivity plots to present the sensitivity analysis results in an intuitive and informative way.
 
 # Step 1: Get Sobol Indices (Done)
-# ToDo Step 2: Define Objective Function
-# ToDo Step 3: Select Optimization Algorithm
+# ToDo Step 2: Define Objective Function (takes the parameters as input and returns a value that quantifies the performance of the model)
+# ToDo Step 3: Select Optimization Algorithm (Gradient Descent, Genetic Algorithms, Bayesian Optimization, Nelder-Mead Method, BFGS: Broyden-Fletcher-Goldfarb-Shanno, CMA-ES: Covariance Matrix Adaptation Evolution Strategy)
 # ToDo Step 4: Optimize Parameters
 # Step 5: Update Model Parameters
 # Step 6: Validate and Verify the Optimized Model
