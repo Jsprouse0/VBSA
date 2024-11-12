@@ -23,7 +23,7 @@ CONST_RESULT_MSG = (
 class SobolAnalyzer:
     def __init__(self,
                  problem: dict,
-                 Y: ndarray,
+                 num_samples: int,
                  calc_second_order=True,
                  num_resamples=1000,
                  conf_level=0.95,
@@ -35,7 +35,7 @@ class SobolAnalyzer:
         """
         Sobol Analyzer class to calculate the Sobol indices for a given model output values.
         :param problem: dict: problem dictionary for the model to be analyzed
-        :param Y: ndarray: model output values to be analyzed for Sobol indices
+        :param num_samples: int: number of samples in the model output values (10, 100, 1000, 10000)
         :param calc_second_order: bool: calculate second order indices or not
         :param num_resamples: int: number of resamples to perform on the model output values
         :param conf_level: float: confidence level of the Sobol indices
@@ -46,8 +46,8 @@ class SobolAnalyzer:
         :param seed: int: seed value for the random number generator
         """
         self.problem = problem
-        self.Y = Y
         self.calc_second_order = calc_second_order
+        required_samples = 2 * problem['num_vars'] + 2 if calc_second_order else problem['num_vars'] + 2
         self.num_resamples = num_resamples
         self.conf_level = conf_level
         self.parallel = parallel
@@ -56,8 +56,9 @@ class SobolAnalyzer:
         self.print_to_console = print_to_console
         self.seed = seed
         self.rng = self.initialize_rng(seed)
-        self.D, self.N = self.validate_inputs(problem, Y, calc_second_order, conf_level)
-        self.Y = self.normalize_outputs(Y)
+        self.Y = np.random.rand(required_samples * num_samples)
+        self.D, self.N = self.validate_inputs(problem, self.Y, calc_second_order, conf_level)
+        self.Y = self.normalize_outputs(self.Y)
         self.A, self.B, self.AB, self.BA = self.separate_output_values(self.Y, self.D, self.N, calc_second_order)
         self.r = self.rng(self.N, size=(self.N, num_resamples))
         self.Z = norm.ppf(0.5 + conf_level / 2)
@@ -93,10 +94,9 @@ class SobolAnalyzer:
         :param Y: ndarray: model output values
         :return: int: number of samples
         """
-        if calc_second_order and Y.size % (2 * D + 2) == 0:
-            return int(Y.size / (2 * D + 2))
-        elif not calc_second_order and Y.size % (D + 2) == 0:
-            return int(Y.size / (D + 2))
+        required_samples = 2 * D + 2 if calc_second_order else D + 2
+        if Y.size % required_samples == 0:
+            return Y.size // required_samples
         else:
             raise ValueError("Incorrect number of samples in model output file. "
                              "Please ensure the model values Y is a multiple of D + 2 or 2D + 2.")
@@ -152,7 +152,6 @@ class SobolAnalyzer:
         :return: tuple[ndarray, ndarray, ndarray, ndarray | None]: A, B, AB, BA; None if second order indices are not calculated
         """
         # Reshape Y to separate the values
-        print(type(Y))
         step = 2 * D + 2 if calc_second_order else D + 2
         Y_reshaped = Y.reshape(N, step)
 
@@ -400,4 +399,3 @@ class SobolAnalyzer:
             }
         return total_order, first_order, (idx, second_order)
 
-# TODO: test the analyze function to ensure it returns the correct values as SALib
